@@ -37,7 +37,7 @@ const SignIn = () => {
                 secureTextEntry
                 onChangeText={setPassword}
             />
-            <Button title='entrar' w='full' onPress={handleSignIn}/>
+            <Button title='entrar' w='full' onPress={handleSignIn} />
         </VStack>
     );
 }
