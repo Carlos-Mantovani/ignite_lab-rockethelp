@@ -1,36 +1,21 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Alert } from 'react-native';
 import auth from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
 import { useNavigation } from '@react-navigation/native';
 import { HStack, IconButton, VStack, useTheme, Text, Heading, FlatList, Center } from 'native-base';
 import { SignOut, ChatTeardropText } from 'phosphor-react-native';
 import Logo from '../assets/logo_secondary.svg';
 import Filter from '../components/Filter';
 import Button from '../components/Button';
-import { Order, OrderProps } from '../components/Order'
+import { Order, OrderProps } from '../components/Order';
+import dateFormat from '../utils/firestoreDateFormat';
+import Loading from '../components/Loading';
 
 const Home = () => {
+    const [isLoading, setIsLoading] = useState(true);
     const [statusSelected, setStatusSelected] = useState<'open' | 'closed'>('open');
-    const [orders, setOrders] = useState<OrderProps[]>([
-        {
-            id: '123',
-            patrimony: '212354365',
-            when: '21/02/2038 às 14:55',
-            status: 'open'
-        },
-        {
-            id: '143',
-            patrimony: '756567',
-            when: '30/06/2038 às 10:09',
-            status: 'closed'
-        },
-        {
-            id: '354',
-            patrimony: '34654365',
-            when: '08/07/2039 às 11:30',
-            status: 'closed'
-        }
-    ]);
+    const [orders, setOrders] = useState<OrderProps[]>([]);
 
     const navigation = useNavigation();
 
@@ -50,6 +35,31 @@ const Home = () => {
             return Alert.alert('Sair', 'Não foi possível sair');
         });
     }
+
+    //Executa quando a tela é carregada
+    useEffect(() => {
+        setIsLoading(true);
+
+        //Retorna as ordens do status selecionado
+        const subscriber = firestore().collection('orders').where('status', '==', statusSelected).onSnapshot(snapshot => {
+            const data = snapshot.docs.map(doc => {
+                const { patrimony, description, status, created_at } = doc.data();
+
+                return {
+                    id: doc.id,
+                    patrimony,
+                    description,
+                    status,
+                    when: dateFormat(created_at)
+                }
+            });
+            setOrders(data);
+            setIsLoading(false);
+        });
+
+        return subscriber;
+
+    }, []);
 
     return (
         <VStack flex={1} pb={6} bg='gray.700'>
@@ -90,22 +100,24 @@ const Home = () => {
                     />
                 </HStack>
 
-
-                <FlatList
-                    data={orders}
-                    keyExtractor={item => item.id}
-                    renderItem={({ item }) => <Order data={item} onPress={() => handleOpenDetails(item.id)} />}
-                    showsVerticalScrollIndicator={false}
-                    contentContainerStyle={{ paddingBottom: 100 }}
-                    ListEmptyComponent={() => (
-                        <Center>
-                            <ChatTeardropText color={colors.gray[300]} size={40} />
-                            <Text color='gray.300' fontSize='xl' mt={6} textAlign='center'>
-                                Você não possui solicitações {statusSelected === 'open' ? 'em andamento' : 'finalizadas'}
-                            </Text>
-                        </Center>
-                    )}
-                />
+                {
+                    isLoading ? <Loading /> :
+                    <FlatList
+                        data={orders}
+                        keyExtractor={item => item.id}
+                        renderItem={({ item }) => <Order data={item} onPress={() => handleOpenDetails(item.id)} />}
+                        showsVerticalScrollIndicator={false}
+                        contentContainerStyle={{ paddingBottom: 100 }}
+                        ListEmptyComponent={() => (
+                            <Center>
+                                <ChatTeardropText color={colors.gray[300]} size={40} />
+                                <Text color='gray.300' fontSize='xl' mt={6} textAlign='center'>
+                                    Você não possui solicitações {statusSelected === 'open' ? 'em andamento' : 'finalizadas'}
+                                </Text>
+                            </Center>
+                        )}
+                    />
+                }
                 <Button title='Nova Solicitação' onPress={handleNewOrder} />
             </VStack>
         </VStack>
